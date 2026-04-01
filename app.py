@@ -19,6 +19,8 @@ SMTP_PORT = 587
 
 
 def load_env_file():
+    # Load local development settings so the app can run without manually
+    # exporting environment variables each time.
     env_path = BASE_DIR / ".env"
     if not env_path.exists():
         return
@@ -39,12 +41,15 @@ app.secret_key = os.getenv("FLASK_SECRET_KEY", "personal-tracker-dev")
 
 
 def get_db_path():
+    # Allow Docker and CI to override where persistent SQLite data lives.
     db_path = Path(os.getenv("TRACKER_DB_PATH", str(DEFAULT_DB_PATH)))
     db_path.parent.mkdir(parents=True, exist_ok=True)
     return db_path
 
 
 def get_log_path():
+    # Keep runtime logs configurable so local runs and containers can store
+    # them in different locations.
     log_path = Path(os.getenv("TRACKER_LOG_PATH", str(DEFAULT_LOG_PATH)))
     log_path.parent.mkdir(parents=True, exist_ok=True)
     return log_path
@@ -74,6 +79,7 @@ def format_activity_block(activity):
 
 
 def init_db():
+    # Create the tables on startup if this is a brand-new database file.
     with sqlite3.connect(get_db_path()) as conn:
         cursor = conn.cursor()
         cursor.execute(
@@ -119,6 +125,8 @@ def send_log_notification(user_name, user_email, activity, today):
         )
         return "missing_config"
 
+    # Send the notification to the other partner based on who submitted
+    # today's check-in.
     if user_email.strip().lower() == sender_email.lower():
         recipient_email = partner_email
     elif user_email.strip().lower() == partner_email.lower():
@@ -294,10 +302,14 @@ def log_day():
 
             if existing_log:
                 existing_activity = (existing_log["activity"] or "").strip()
+                # Avoid duplicating the same text block if the user submits
+                # the same content for the same day more than once.
                 if formatted_activity == existing_activity or formatted_activity in existing_activity:
                     message = f"No changes made to today's log for {user['name']}."
                     saved_activity = existing_activity
                 else:
+                    # Preserve the earlier entry and append genuinely new
+                    # activity to the same day's log.
                     updated_activity = f"{existing_activity}\n{formatted_activity}".strip()
                     cursor.execute(
                         """
