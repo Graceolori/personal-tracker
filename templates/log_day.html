@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Log Day | Personal Tracker{% endblock %}
+
+{% block content %}
+<section class="card">
+    <h2>Log Daily Check-in</h2>
+    <p>Select a user and write what they achieved today. If a log already exists for today, this app appends the new note.</p>
+
+    {% if users %}
+        <form method="post">
+            <label for="user_id">
+                User
+                <select id="user_id" name="user_id" required>
+                    <option value="">Choose a user</option>
+                    {% for user in users %}
+                        <option value="{{ user['id'] }}" {% if selected_user_id|string == user['id']|string %}selected{% endif %}>
+                            {{ user["name"] }} ({{ user["email"] }})
+                        </option>
+                    {% endfor %}
+                </select>
+            </label>
+
+            <label for="activity">
+                Activity
+                <textarea id="activity" name="activity" placeholder="Finished a task, studied a topic, shipped a small win..." required>{{ activity }}</textarea>
+            </label>
+
+            <button type="submit" class="button">Save today's log</button>
+        </form>
+    {% else %}
+        <p class="empty">No users found yet. Add a user first before logging a day.</p>
+        <p><a href="{{ url_for('add_user') }}" class="button">Go to Add User</a></p>
+    {% endif %}
+</section>
+{% endblock %}

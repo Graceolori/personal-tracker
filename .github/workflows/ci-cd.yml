@@ -1,0 +1,118 @@
+name: CI-CD
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+env:
+  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/personal-tracker
+
+jobs:
+  scan-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest bandit pip-audit
+
+      - name: Run tests
+        run: pytest -q
+
+      - name: Run Bandit
+        run: bandit -r . -x ./tests
+
+      - name: Run pip-audit
+        run: pip-audit -r requirements.txt
+
+  build-and-push:
+    runs-on: ubuntu-latest
+    needs: scan-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=sha
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Scan Docker image
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: ${{ env.IMAGE_NAME }}:latest
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USERNAME: ${{ secrets.DEPLOY_USERNAME }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+
+    steps:
+      - name: Deploy to Docker host over SSH
+        if: env.DEPLOY_HOST != '' && env.DEPLOY_USERNAME != '' && env.DEPLOY_SSH_KEY != ''
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ env.DEPLOY_HOST }}
+          username: ${{ env.DEPLOY_USERNAME }}
+          key: ${{ env.DEPLOY_SSH_KEY }}
+          script: |
+            docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" -p "${{ secrets.DOCKERHUB_TOKEN }}"
+            docker pull ${{ env.IMAGE_NAME }}:latest
+            docker stop personal-tracker || true
+            docker rm personal-tracker || true
+            docker run -d \
+              --name personal-tracker \
+              --restart unless-stopped \
+              -p 5000:5000 \
+              -e TRACKER_SENDER_EMAIL='${{ secrets.TRACKER_SENDER_EMAIL }}' \
+              -e TRACKER_SENDER_PASSWORD='${{ secrets.TRACKER_SENDER_PASSWORD }}' \
+              -e TRACKER_PARTNER_EMAIL='${{ secrets.TRACKER_PARTNER_EMAIL }}' \
+              -e TRACKER_DISABLE_EMAIL='${{ secrets.TRACKER_DISABLE_EMAIL }}' \
+              -e FLASK_SECRET_KEY='${{ secrets.FLASK_SECRET_KEY }}' \
+              -e TRACKER_DB_PATH='/app/data/tracker.db' \
+              -e TRACKER_LOG_PATH='/app/data/app.log' \
+              -v personal_tracker_data:/app/data \
+              ${{ env.IMAGE_NAME }}:latest

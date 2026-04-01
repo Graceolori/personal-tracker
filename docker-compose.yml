@@ -1,0 +1,18 @@
+services:
+  personal-tracker:
+    build: .
+    image: personal-tracker:local
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    environment:
+      TRACKER_DB_PATH: /app/data/tracker.db
+      TRACKER_LOG_PATH: /app/data/app.log
+      FLASK_SECRET_KEY: local-dev-secret
+    volumes:
+      - tracker_data:/app/data
+    restart: unless-stopped
+
+volumes:
+  tracker_data:

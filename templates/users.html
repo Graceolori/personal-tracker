@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Users | Personal Tracker{% endblock %}
+
+{% block content %}
+<section class="card">
+    <h2>Users</h2>
+    {% if users %}
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                    <tr>
+                        <td>{{ user["id"] }}</td>
+                        <td>{{ user["name"] }}</td>
+                        <td>{{ user["email"] }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p class="empty">No users found yet.</p>
+    {% endif %}
+</section>
+{% endblock %}

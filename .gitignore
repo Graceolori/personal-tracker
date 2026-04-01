@@ -1,0 +1,6 @@
+.env
+app.log
+tracker.db
+data/
+__pycache__/
+.pytest_cache/

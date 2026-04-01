@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | Personal Tracker{% endblock %}
+
+{% block content %}
+<section class="grid">
+    <article class="card">
+        <div class="label">Users</div>
+        <p class="stat">{{ user_count }}</p>
+    </article>
+    <article class="card">
+        <div class="label">Total Logs</div>
+        <p class="stat">{{ log_count }}</p>
+    </article>
+</section>
+
+<section class="card" style="margin-top: 18px;">
+    <h2>Quick Actions</h2>
+    <p>Use the links below to keep the tracker updated without touching the terminal.</p>
+    <p>
+        <a href="{{ url_for('add_user') }}" class="button">Create a user</a>
+        <a href="{{ url_for('log_day') }}" class="button secondary">Add today's check-in</a>
+    </p>
+</section>
+
+<section class="card" style="margin-top: 18px;">
+    <h2>Recent Activity</h2>
+    {% if recent_logs %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Name</th>
+                    <th>Status</th>
+                    <th>Activity</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in recent_logs %}
+                    <tr>
+                        <td>{{ log["date"] }}</td>
+                        <td>{{ log["name"] }}</td>
+                        <td>{{ log["status"] }}</td>
+                        <td class="activity">{{ log["activity"] }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p class="empty">No daily logs yet. Start with your first check-in.</p>
+    {% endif %}
+</section>
+{% endblock %}

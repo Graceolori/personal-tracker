@@ -1,0 +1,10 @@
+.env
+.env.*
+.git
+.github
+__pycache__/
+.pytest_cache/
+app.log
+tracker.db
+data/
+tests/
