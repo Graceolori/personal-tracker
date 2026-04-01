@@ -132,10 +132,59 @@ It currently:
 - runs `pytest`
 - scans Python code with `bandit`
 - audits dependencies with `pip-audit`
-- builds a Docker image
-- pushes the image to Docker Hub on pushes to `main`
-- scans the image with Trivy
+- builds a Docker image locally in CI
+- scans the image with `Trivy`
+- pushes the image to Docker Hub on pushes to `main` only after the image scan passes
 - optionally deploys the container to a remote Docker host over SSH
+
+## CI/CD Pipeline Management
+
+The CI/CD pipeline is managed with GitHub Actions in [`personal_tracker/.github/workflows/ci-cd.yml`](/c:/Users/User/Documents/personal_tracker/.github/workflows/ci-cd.yml). The workflow is triggered on pull requests and on pushes to the `main` branch.
+
+Pipeline flow:
+
+1. `scan-and-test` runs first to validate application quality.
+2. `pytest` checks the Flask application behavior.
+3. `bandit` performs static security analysis on the Python codebase.
+4. `pip-audit` checks installed dependencies for known vulnerabilities.
+5. `build-and-push` starts only after the validation job succeeds.
+6. Docker builds the application image locally inside CI.
+7. `Trivy` scans the built image for `CRITICAL` and `HIGH` vulnerabilities.
+8. Docker Hub push happens only if the image scan succeeds.
+9. `deploy` runs after a successful image push when deployment secrets are available.
+
+## Security And Scan Tools
+
+The pipeline uses multiple security and quality tools so problems are caught before deployment:
+
+- `pytest` verifies core application behavior
+- `bandit` scans Python source code for common security issues
+- `pip-audit` checks Python packages against known vulnerability databases
+- `Trivy` scans the built Docker image for operating system and package vulnerabilities
+
+This layered approach helps reduce the chance of publishing or deploying an image that contains known issues.
+
+## Docker Hub Push And Deployment
+
+The Docker image is built from the project `Dockerfile` and tagged using:
+
+- `latest`
+- a commit-based `sha-...` tag
+
+The SHA tag maps the image back to the Git commit that produced it, while `latest` tracks the newest successful build on `main`.
+
+Docker Hub behavior:
+
+- images are published to `${DOCKERHUB_USERNAME}/personal-tracker`
+- images are not pushed until the image scan passes
+- only validated images are available for later pull and deployment
+
+Deployment behavior:
+
+- deployment is optional and depends on `DEPLOY_HOST`, `DEPLOY_USERNAME`, and `DEPLOY_SSH_KEY`
+- the remote server logs in to Docker Hub
+- it pulls the `latest` validated image
+- it replaces the running `personal-tracker` container with the newly scanned image
 
 ## GitHub Secrets Required
 
