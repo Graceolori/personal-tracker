@@ -64,22 +64,27 @@ jobs:
             type=raw,value=latest
             type=sha
 
-      - name: Build and push image
+      - name: Build image locally
         uses: docker/build-push-action@v6.18.0
         with:
           context: .
-          push: true
+          load: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
       - name: Scan Docker image
         run: |
-          docker pull ${{ env.IMAGE_NAME }}:latest
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock ghcr.io/aquasecurity/trivy:0.68.2 image \
             --severity CRITICAL,HIGH \
             --ignore-unfixed \
             --exit-code 1 \
             ${{ env.IMAGE_NAME }}:latest
+
+      - name: Push image
+        run: |
+          printf '%s\n' "${{ steps.meta.outputs.tags }}" | while IFS= read -r tag; do
+            [ -n "$tag" ] && docker push "$tag"
+          done
 
   deploy:
     runs-on: ubuntu-latest
